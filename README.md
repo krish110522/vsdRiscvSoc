@@ -41,7 +41,69 @@ export E=$(date +%s)
 
 > This header file is used to embed identity info (user, host, time, machine) into each compiled binary.
 
-Paste the `unique.h` file contents here or refer to your local copy.
+#ifndef UNIQUE_H
+#define UNIQUE_H
+
+#include <stdio.h>
+#include <stdint.h>
+#include <time.h>
+
+#ifndef USERNAME
+#define USERNAME "unknown_user"
+#endif
+
+#ifndef HOSTNAME
+#define HOSTNAME "unknown_host"
+#endif
+
+#ifndef MACHINE_ID
+#define MACHINE_ID "unknown_machine"
+#endif
+
+#ifndef BUILD_UTC
+#define BUILD_UTC "unknown_time"
+#endif
+
+#ifndef BUILD_EPOCH
+#define BUILD_EPOCH 0
+#endif
+
+static uint64_t fnv1a64(const char *s) {
+  const uint64_t OFF = 1469598103934665603ULL, PRIME = 1099511628211ULL;
+  uint64_t h = OFF;
+  for (const unsigned char *p=(const unsigned char*)s; *p; ++p) {
+    h ^= *p;
+    h *= PRIME;
+  }
+  return h;
+}
+
+static void uniq_print_header(const char *program_name) {
+  time_t now = time(NULL);
+  char buf[512];
+  int n = snprintf(buf, sizeof(buf), "%s|%s|%s|%s|%ld|%s|%s",
+    USERNAME, HOSTNAME, MACHINE_ID, BUILD_UTC,
+    (long)BUILD_EPOCH, __VERSION__, program_name);
+  (void)n;
+  uint64_t proof = fnv1a64(buf);
+  char rbuf[600];
+  snprintf(rbuf, sizeof(rbuf), "%s|run_epoch=%ld", buf, (long)now);
+  uint64_t runid = fnv1a64(rbuf);
+  printf("=== RISC-V Proof Header ===\n");
+  printf("User : %s\n", USERNAME);
+  printf("Host : %s\n", HOSTNAME);
+  printf("MachineID : %s\n", MACHINE_ID);
+  printf("BuildUTC : %s\n", BUILD_UTC);
+  printf("BuildEpoch : %ld\n", (long)BUILD_EPOCH);
+  printf("GCC : %s\n", __VERSION__);
+  printf("PointerBits: %d\n", (int)(8*(int)sizeof(void*)));
+  printf("Program : %s\n", program_name);
+  printf("ProofID : 0x%016llx\n", (unsigned long long)proof);
+  printf("RunID : 0x%016llx\n", (unsigned long long)runid);
+  printf("===========================\n");
+}
+
+#endif
 
 ---
 
@@ -51,22 +113,63 @@ Each file includes `#include "unique.h"` at the top and uses `uniq_print_header(
 
 ### 2.3.1 — factorial.c
 ```c
-// INSERT factorial.c code here
+#include "unique.h"
+static unsigned long long fact(unsigned n){ return (n<2)?1ULL:n*fact(n-1); }
+int main(void){
+  uniq_print_header("factorial");
+  unsigned n = 12;
+  printf("n=%u, n!=%llu\n", n, fact(n));
+  return 0;
+}
 ```
 
 ### 2.3.2 — max_array.c
 ```c
-// INSERT max_array.c code here
+#include "unique.h"
+int main(void){
+  uniq_print_header("max_array");
+  int a[] = {42,-7,19,88,3,88,5,-100,37};
+  int n = sizeof(a)/sizeof(a[0]), max=a[0];
+  for(int i=1;i<n;i++) if(a[i]>max) max=a[i];
+  printf("Array length=%d, Max=%d\n", n, max);
+  return 0;
+}
 ```
 
 ### 2.3.3 — bitops.c
 ```c
-// INSERT bitops.c code here
+#include "unique.h"
+int main(void){
+  uniq_print_header("bitops");
+  unsigned x=0xA5A5A5A5u, y=0x0F0F1234u;
+  printf("x&y=0x%08X\n", x&y);
+  printf("x|y=0x%08X\n", x|y);
+  printf("x^y=0x%08X\n", x^y);
+  printf("x<<3=0x%08X\n", x<<3);
+  printf("y>>2=0x%08X\n", y>>2);
+  return 0;
+}
 ```
 
 ### 2.3.4 — bubble_sort.c
 ```c
-// INSERT bubble_sort.c code here
+#include "unique.h"
+void bubble(int *a,int n){
+  for(int i=0;i<n-1;i++)
+    for(int j=0;j<n-1-i;j++)
+      if(a[j]>a[j+1]){
+        int t=a[j];a[j]=a[j+1];a[j+1]=t;
+      }
+}
+int main(void){
+  uniq_print_header("bubble_sort");
+  int a[]={9,4,1,7,3,8,2,6,5}, n=sizeof(a)/sizeof(a[0]);
+  bubble(a,n);
+  printf("Sorted:");
+  for(int i=0;i<n;i++) printf(" %d",a[i]);
+  puts("");
+  return 0;
+}
 ```
 
 ---
